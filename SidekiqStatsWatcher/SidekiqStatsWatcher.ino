@@ -13,62 +13,9 @@
 
 //#define DEBUG // turn on debugging statements
 
-#include "SPI.h" // SPI Serial Peripheral Interface
+#include "src/MAX7219_7Seg/MAX7219_7Seg.h"
 
-/*
- * pin out
- *   7-seg board  function  ESP func   VSPI pin  HSPI pin  Meaning
- *   DIN          MOSI      HSPI MOSI  GPIO23    GPIO13    Master Output Slave Input (data output from master)
- *   CS           SS        HSPI CS    GPIO5     GPIO15    Slave Select / Chip Select
- *   CLK          SCLK      HSPI CLK   GPIO18    GPIO14    Serial CLocK
- */
-// Define the number of 7-seg digits
-// in the display. Valid range [1..8]
-const uint8_t NUM_DIGITS = 8;
-
-// Define the SS pin
-const uint8_t pinSS = 5; // GPIO5
-
-// Opcodes for the MAX7221 and MAX7219
-const uint16_t OP_NOOP = 0;
-const uint16_t OP_DIGIT0 = 1;
-// note: all OP_DIGITn are +n offsets from OP_DIGIT0
-const uint16_t OP_DIGIT1 = 2;
-const uint16_t OP_DIGIT2 = 3;
-const uint16_t OP_DIGIT3 = 4;
-const uint16_t OP_DIGIT4 = 5;
-const uint16_t OP_DIGIT5 = 6;
-const uint16_t OP_DIGIT6 = 7;
-const uint16_t OP_DIGIT7 = 8;
-const uint16_t OP_DECODEMODE = 9;
-const uint16_t OP_INTENSITY = 10;
-const uint16_t OP_SCANLIMIT = 11;
-const uint16_t OP_SHUTDOWN = 12;
-const uint16_t OP_DISPLAYTEST = 15;
-
-void sendData(uint16_t cmd, uint8_t data)
-// Send a simple command to the MAX7219
-// using the hardware SPI interface
-{
-  uint16_t x = (cmd << 8) | data;
-  SPI.beginTransaction(SPISettings(8000000, MSBFIRST, SPI_MODE0));
-  digitalWrite(pinSS, LOW);
-  SPI.transfer16(x);
-  digitalWrite(pinSS, HIGH);
-  SPI.endTransaction();
-}
-
-void update(uint32_t n)
-// Work out the individual digits to
-// be displayed and show them.
-{
-  for (uint8_t i = 0; i < NUM_DIGITS; i++)
-  {
-    uint8_t digit = n % 10;
-    sendData(OP_DIGIT0 + i, digit);
-    n /= 10;
-  }
-}
+MAX7219_7Seg max7219_7Seg;
 
 void setup()
 {
@@ -79,21 +26,7 @@ void setup()
   Serial.println("\n");
   Serial.print("Setting up 7-setment display... ");
 
-  pinMode(pinSS, OUTPUT);
-  SPI.begin();
-  // Set the MAX7219 parameters
-  sendData(OP_SHUTDOWN, 1);
-  sendData(OP_DECODEMODE, 0xff);
-  sendData(OP_SCANLIMIT, NUM_DIGITS-1);
-  sendData(OP_INTENSITY, 3);
-
-  // turn on all LED for short time
-  sendData(OP_DISPLAYTEST, 1);
-  delay(500);
-  sendData(OP_DISPLAYTEST, 0);
-
-  // initialize the display to 0
-  update(0);
+  max7219_7Seg.setup();
   Serial.println("done");
 
   // connect to a WiFi network
@@ -143,7 +76,7 @@ void loop()
         }
         long processed = doc["sidekiq"]["processed"];
         Serial.println(processed);
-        update(processed);
+        max7219_7Seg.update(processed);
       } 
       else {
         Serial.println("Error on HTTP request");
